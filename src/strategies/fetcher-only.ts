@@ -26,7 +26,7 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse, ResourcePlugin, Fetcher, KeyFactory,
+  ResourceHandler, StorageRequest, StorageResponse, ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
 } from '../types';
 import { fetchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
@@ -34,7 +34,7 @@ import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 export default class FetcherOnly<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
 
-  constructor(plugins: ResourcePlugin<T>[]) {
+  constructor({ plugins }: HandlerConfig) {
     this.plugins = plugins.length === 0
       ? [new SuccessOnlyPlugin()]
       : plugins;
