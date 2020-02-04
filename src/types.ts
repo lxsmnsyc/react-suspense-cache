@@ -25,49 +25,103 @@
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
  */
+export type Optional<T> = T | null | undefined;
+
+export type StorageRequest = any[];
 
 export type Key = string;
+
 export type Age = number;
 
-export interface AsyncSuccess<T> {
-  readonly status: 'success';
-  readonly value: T;
+export type KeyFactory = (...args: StorageRequest) => Key;
+
+export type Fetcher<T> = (...args: StorageRequest) => Promise<T>;
+
+
+export enum StorageAccess {
+  Read,
+  Write,
+}
+export interface ResponseFailure {
+  status: 'failure';
+  value: any;
 }
 
-export interface AsyncFailure {
-  readonly status: 'failure';
-  readonly value: any;
+export interface ResponseSuccess<T> {
+  status: 'success';
+  value: T;
 }
 
-export interface AsyncPending {
-  readonly status: 'pending';
+
+export type ResponseData<T> = ResponseFailure | ResponseSuccess<T>;
+
+export interface ResourceCache<T> {
+  instance?: Promise<T>;
+  data?: ResponseData<T>;
 }
 
-export type AsyncState<T> = AsyncSuccess<T> | AsyncFailure | AsyncPending;
+export type StorageResponse<T> = ResponseData<T>;
 
-export type KeySupplier<Args extends any[]> = (...args: Args) => Key;
-export type DataFetcher<Args extends any[], R> = (...args: Args) => Promise<R>;
-
-export interface CachedData<T> {
-  readonly data: AsyncState<T>;
-  readonly timestamp: number;
+export interface ResourceHandler<T> {
+  handle: (
+    cacheName: string,
+    keyFactory: KeyFactory,
+    fetcher: Fetcher<T>,
+    request: StorageRequest,
+  ) => Promise<StorageResponse<T>>;
 }
 
-export interface DataStorage {
-  get: <R>(key: Key) => R | undefined;
-  set: <R>(key: Key, value: R) => void;
-  has: (key: Key) => boolean;
-  remove: (key: Key) => void;
+export interface ResourcePlugin<T> {
+  cacheWillUpdate?: (
+    request: StorageRequest,
+    response: StorageResponse<T>,
+  ) => Promise<Optional<StorageResponse<T>>>;
+  cacheDidUpdate?: (
+    cacheName: string,
+    key: Key,
+    request: StorageRequest,
+    oldResponse: Optional<StorageResponse<T>>,
+    newResponse: StorageResponse<T>,
+  ) => Promise<void>;
+  cacheKeyWillBeUsed?: (
+    request: StorageRequest,
+    access: StorageAccess,
+  ) => Promise<StorageRequest>;
+  cachedResponseWillBeUsed?: (
+    cacheName: string,
+    key: Key,
+    request: StorageRequest,
+    cachedResponse: Optional<StorageResponse<T>>,
+  ) => Promise<Optional<StorageResponse<T>>>;
+  requestWillFetch?: (
+    request: StorageRequest,
+  ) => Promise<StorageRequest>;
+  fetchDidFail?: (
+    oldRequest: StorageRequest,
+    newRequest: StorageRequest,
+    error: any,
+  ) => Promise<void>;
+  fetchDidSucceed?: (
+    request: StorageRequest,
+    response: StorageResponse<T>,
+  ) => Promise<StorageResponse<T>>;
 }
 
-export interface Config {
-  readonly storage: DataStorage;
-  readonly age: Age;
+export interface HandlerConfig {
+  plugins: ResourcePlugin<any>[];
 }
 
-export interface Resource<Args extends any[], T> {
-  readonly get: (...args: Args) => T | undefined;
-  readonly set: (value: T, ...args: Args) => void;
-  readonly refetch: (...args: Args) => void;
-  readonly revalidate: (...args: Args) => void;
+export interface Config<T> {
+  keyFactory: KeyFactory;
+  fetcher: Fetcher<T>;
+  cacheName?: string;
+  strategy?: ResourceHandler<T>;
+  revalidateOnVisibility?: boolean;
+  updateOnVisibility?: boolean;
+}
+
+export interface Resource<T, Params extends StorageRequest> {
+  read: (...params: Params) => T | undefined;
+  mutate: (value: T, ...params: Params) => void;
+  trigger: (...params: Params) => void;
 }
