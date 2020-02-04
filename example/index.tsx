@@ -1,18 +1,23 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
-import { createResource, ResourceCache } from '../src';
+import { createResource, strategies, plugins } from '../src';
 
-const randomDog = createResource(
-  (kind) => `https://dog.ceo/api/breed/${kind}/images/random`,
-  async (kind) => {
+const randomDog = createResource({
+  keyFactory(kind) {
+    return `https://dog.ceo/api/breed/${kind}/images/random`;
+  },
+  async fetcher(kind) {
     const response = await fetch(`https://dog.ceo/api/breed/${kind}/images/random`);
     const json = await response.json();
     return json.message;
   },
-  {
-    storage: ResourceCache.LOCAL_CACHE,
-  },
-);
+  strategy: new strategies.StaleWhileRevalidate({
+    plugins: [
+      new plugins.ExpirationPlugin(10),
+    ],
+  }),
+  revalidateOnVisibility: true,
+});
 
 
 const flexbox: React.CSSProperties = {
@@ -29,7 +34,9 @@ const image: React.CSSProperties = {
 };
 
 function Image({ kind }: { kind: string }) {
-  const message = randomDog.get(kind);
+  const message = randomDog.read(kind);
+
+  console.log(message);
 
   return <img style={image} src={message} />;
 }
@@ -53,9 +60,9 @@ function App() {
         </React.Suspense>
       </div>
       <div style={flexbox}>
-        <button type="button" onClick={() => randomDog.refetch('shiba')}>Refetch Shiba</button>
-        <button type="button" onClick={() => randomDog.refetch('samoyed')}>Refetch Samoyed</button>
-        <button type="button" onClick={() => randomDog.refetch('husky')}>Refetch Husky</button>
+        <button type="button" onClick={() => randomDog.trigger('shiba')}>Refetch Shiba</button>
+        <button type="button" onClick={() => randomDog.trigger('samoyed')}>Refetch Samoyed</button>
+        <button type="button" onClick={() => randomDog.trigger('husky')}>Refetch Husky</button>
       </div>
     </>
   );
