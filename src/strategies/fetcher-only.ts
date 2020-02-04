@@ -26,7 +26,8 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse, ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
+  ResourceHandler, StorageRequest, StorageResponse,
+  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
 } from '../types';
 import { fetchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';

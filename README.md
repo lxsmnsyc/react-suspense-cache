@@ -80,3 +80,8 @@ A traditional Suspense resource has a single source of data, whose data is kept 
 - Resource: provides the data-fetching logic to the strategy, keeps the Promise instance for the Suspense components.
 - Components: reads the data from the resource, and can reactively update when necessary.
 
+## Similar libraries
+
+- [Google Workbox](https://github.com/GoogleChrome/workbox)
+- [SWR](https://github.com/zeit/swr) - React Hooks library for remote data fetching.
+- [Hitchcock](https://github.com/pomber/hitchcock) - The Master of Suspense 🍿
