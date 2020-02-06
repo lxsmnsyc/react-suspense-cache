@@ -26,40 +26,36 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse,
-  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
-  Optional, ResponseData,
+  ResourceHandler, ResponseData,
+  ResourcePlugin, HandlerConfig,
+  Optional, ResourceHandlerParam,
 } from '../types';
 import { fetchData, matchData, cacheData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 import NoResponseError from '../errors/no-response';
 
+/** @hidden */
 interface TimeoutRef {
   current?: number;
 }
 
+/** @hidden */
 interface TimeoutControl<T> {
   promise: Promise<Optional<ResponseData<T>>>;
   id: TimeoutRef;
 }
 
+/** @hidden */
 function timeoutPromise<T>(
   timeout: number,
-  cacheName: string,
-  keyFactory: KeyFactory,
-  request: StorageRequest,
+  param: ResourceHandlerParam<T>,
   plugins: ResourcePlugin<T>[],
 ): TimeoutControl<T> {
   const id: TimeoutRef = {};
 
   const promise = new Promise<Optional<ResponseData<T>>>((resolve) => {
     id.current = window.setTimeout(() => {
-      matchData<T>(
-        cacheName,
-        keyFactory,
-        request,
-        plugins,
-      ).then((value) => {
+      matchData<T>(param, plugins).then((value) => {
         resolve(value);
       });
     }, timeout);
@@ -68,23 +64,17 @@ function timeoutPromise<T>(
   return { id, promise };
 }
 
+/** @hidden */
 async function fetcherPromise<T>(
   id: number | undefined,
-  cacheName: string,
-  keyFactory: KeyFactory,
-  fetcher: Fetcher<T>,
-  request: StorageRequest,
+  param: ResourceHandlerParam<T>,
   plugins: ResourcePlugin<T>[],
 ): Promise<Optional<ResponseData<T>>> {
   let response;
   let error;
 
   try {
-    response = await fetchData(
-      fetcher,
-      request,
-      plugins,
-    );
+    response = await fetchData(param, plugins);
   } catch (err) {
     error = err;
   }
@@ -94,20 +84,9 @@ async function fetcherPromise<T>(
   }
 
   if (error) {
-    response = await matchData(
-      cacheName,
-      keyFactory,
-      request,
-      plugins,
-    );
+    response = await matchData(param, plugins);
   } else if (response) {
-    cacheData(
-      cacheName,
-      keyFactory,
-      request,
-      response,
-      plugins,
-    );
+    cacheData(param, response, plugins);
   }
 
   return response;
@@ -117,6 +96,17 @@ export interface FetcherFirstConfig extends HandlerConfig {
   timeout?: number;
 }
 
+/**
+ * Implements the "Network falling back to cache" strategy:
+ * https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/#network-falling-back-to-cache
+ *
+ * Tries to fetch from the fetcher first with a given timeout (optional).
+ * If the fetcher fails through errors or if it doesn't respond up until the
+ * given timeout, the data is fetched from the cache.
+ *
+ * @category Strategies
+ * @typeparam T type of the data to be cached.
+ */
 export default class FetcherFirst<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
 
@@ -129,21 +119,15 @@ export default class FetcherFirst<T> implements ResourceHandler<T> {
     this.timeout = timeout;
   }
 
-  public async handle(
-    cacheName: string,
-    keyFactory: KeyFactory,
-    fetcher: Fetcher<T>,
-    request: StorageRequest,
-  ): Promise<StorageResponse<T>> {
+  /** @ignore */
+  public async handle(param: ResourceHandlerParam<T>): Promise<ResponseData<T>> {
     const promises = [];
     let timeoutId;
 
     if (this.timeout) {
       const { id, promise } = timeoutPromise(
         this.timeout,
-        cacheName,
-        keyFactory,
-        request,
+        param,
         this.plugins,
       );
 
@@ -152,21 +136,14 @@ export default class FetcherFirst<T> implements ResourceHandler<T> {
       promises.push(promise);
     }
 
-    const fetched = fetcherPromise(
-      timeoutId,
-      cacheName,
-      keyFactory,
-      fetcher,
-      request,
-      this.plugins,
-    );
+    const fetched = fetcherPromise(timeoutId, param, this.plugins);
 
     promises.push(fetched);
 
     const response = await Promise.race(promises);
 
     if (!response) {
-      throw new NoResponseError(cacheName, request);
+      throw new NoResponseError(param.cacheName, param.request);
     }
 
     return response;
