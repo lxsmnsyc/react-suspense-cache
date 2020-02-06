@@ -26,14 +26,15 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse,
-  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig, Optional, ResponseData,
+  ResourceHandler, ResponseData,
+  ResourcePlugin, HandlerConfig, Optional, ResourceHandlerParam,
 } from '../types';
 import { fetchData, matchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 import NoResponseError from '../errors/no-response';
 import AllPromiseFailedError from '../errors/all-promise-failed';
 
+/** @hidden */
 function promiseAny<T>(
   promises: Promise<Optional<ResponseData<T>>>[],
 ): Promise<Optional<ResponseData<T>>> {
@@ -60,6 +61,16 @@ function promiseAny<T>(
   });
 }
 
+/**
+ * Implements the "Cache & network race" strategy:
+ * https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/#cache-and-network-race
+ *
+ * Tries to fetch from the cache and the fetcher at the same time,
+ * resolving with the data of whichever fetching comes first.
+ *
+ * @category Strategies
+ * @typeparam T type of the data to be cached.
+ */
 export default class CacheFetcherRace<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
 
@@ -69,24 +80,11 @@ export default class CacheFetcherRace<T> implements ResourceHandler<T> {
       : plugins;
   }
 
-  public async handle(
-    cacheName: string,
-    keyFactory: KeyFactory,
-    fetcher: Fetcher<T>,
-    request: StorageRequest,
-  ): Promise<StorageResponse<T>> {
-    const fetched = fetchData(
-      fetcher,
-      request,
-      this.plugins,
-    );
+  /** @ignore */
+  public async handle(param: ResourceHandlerParam<T>): Promise<ResponseData<T>> {
+    const fetched = fetchData(param, this.plugins);
 
-    const cached = matchData(
-      cacheName,
-      keyFactory,
-      request,
-      this.plugins,
-    );
+    const cached = matchData(param, this.plugins);
 
     const response = await promiseAny([
       fetched,
@@ -94,7 +92,7 @@ export default class CacheFetcherRace<T> implements ResourceHandler<T> {
     ]);
 
     if (!response) {
-      throw new NoResponseError(cacheName, request);
+      throw new NoResponseError(param.cacheName, param.request);
     }
 
     return response;
