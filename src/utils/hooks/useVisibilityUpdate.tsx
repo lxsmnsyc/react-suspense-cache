@@ -24,10 +24,12 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import useIsomorphicEffect from './useIsomorphicEffect';
 import useForceUpdate from './useForceUpdate';
 
+/** @hidden */
 export default function useVisibilityUpdate(listen: boolean): void {
   const forceUpdate = useForceUpdate();
 
