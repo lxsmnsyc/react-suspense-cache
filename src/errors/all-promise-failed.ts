@@ -25,6 +25,10 @@
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
  */
+
+/**
+ * Thrown by the [[CacheFetcherRace]] for the aggregate errors.
+ */
 export default class AllPromiseFailedError extends Error {
   private errors: Error[];
 
