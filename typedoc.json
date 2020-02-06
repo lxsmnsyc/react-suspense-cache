@@ -1,0 +1,17 @@
+{
+  "inputFiles": ["./src"],
+  "mode": "file",
+  "includeDeclarations": true,
+  "out": "docs",
+  "excludeNotExported": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "readme": "./README.md",
+  "categoryOrder": [
+    "Core",
+    "Strategies",
+    "Plugins"
+  ],
+  "name": "react-suspense-cache"
+}
