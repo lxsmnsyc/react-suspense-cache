@@ -24,18 +24,12 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import useConstant from './useConstant';
 
-/**
- * Hook for producing a memoized callback that
- * remains constant throughout the component
- * lifecycle.
- * @category Hooks
- * @param callback
- * @typeparam T types of the callback parameters
- * @typeparam R type of the value returned by the callback
- */
+
+/** @hidden */
 export default function useConstantCallback<T extends((...args: any[]) => any)>(callback: T): T {
   return useConstant<T>(() => callback);
 }
