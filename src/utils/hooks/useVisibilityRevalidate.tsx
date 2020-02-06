@@ -24,10 +24,12 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import useIsomorphicEffect from './useIsomorphicEffect';
 import { StorageRequest } from '../../types';
 
+/** @hidden */
 export default function useVisibilityRevalidate<P extends StorageRequest>(
   listen: boolean,
   trigger: (...args: P) => void,
