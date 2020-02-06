@@ -26,12 +26,23 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse,
-  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
+  ResourceHandler, ResponseData,
+  ResourcePlugin, HandlerConfig, ResourceHandlerParam,
 } from '../types';
 import { fetchData, matchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 
+/**
+ * Implements the "Cache, falling back to network" strategy:
+ * https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/#cache-falling-back-to-network
+ *
+ * Responds with the cached data first and tries to fetch data,
+ * thereafter caching the data and responds with the data if
+ * the cached data fails.
+ *
+ * @category Strategies
+ * @typeparam T type of the data to be cached.
+ */
 export default class CacheFirst<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
 
@@ -41,25 +52,12 @@ export default class CacheFirst<T> implements ResourceHandler<T> {
       : plugins;
   }
 
-  public async handle(
-    cacheName: string,
-    keyFactory: KeyFactory,
-    fetcher: Fetcher<T>,
-    request: StorageRequest,
-  ): Promise<StorageResponse<T>> {
-    let response = await matchData(
-      cacheName,
-      keyFactory,
-      request,
-      this.plugins,
-    );
+  /** @ignore */
+  public async handle(param: ResourceHandlerParam<T>): Promise<ResponseData<T>> {
+    let response = await matchData(param, this.plugins);
 
     if (!response) {
-      response = await fetchData(
-        fetcher,
-        request,
-        this.plugins,
-      );
+      response = await fetchData(param, this.plugins);
     }
 
     return response;
