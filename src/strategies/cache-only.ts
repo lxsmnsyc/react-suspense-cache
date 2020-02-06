@@ -26,13 +26,23 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse,
-  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
+  ResourceHandler, ResponseData,
+  ResourcePlugin, HandlerConfig, ResourceHandlerParam,
 } from '../types';
 import { matchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 import NoResponseError from '../errors/no-response';
 
+/**
+ * Implements the "Cache only" strategy:
+ * https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/#cache-only
+ *
+ * Always tries to fetch from the cache.
+ * Fetcher is always ignored.
+ *
+ * @category Strategies
+ * @typeparam T type of the data to be cached.
+ */
 export default class CacheOnly<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
 
@@ -42,22 +52,12 @@ export default class CacheOnly<T> implements ResourceHandler<T> {
       : plugins;
   }
 
-
-  public async handle(
-    cacheName: string,
-    keyFactory: KeyFactory,
-    _: Fetcher<T>,
-    request: StorageRequest,
-  ): Promise<StorageResponse<T>> {
-    const response = await matchData(
-      cacheName,
-      keyFactory,
-      request,
-      this.plugins,
-    );
+  /** @ignore */
+  public async handle(param: ResourceHandlerParam<T>): Promise<ResponseData<T>> {
+    const response = await matchData(param, this.plugins);
 
     if (!response) {
-      throw new NoResponseError(cacheName, request);
+      throw new NoResponseError(param.cacheName, param.request);
     }
 
     return response;
