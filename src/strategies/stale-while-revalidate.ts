@@ -26,36 +26,33 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse,
-  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
+  ResourceHandler, ResponseData,
+  ResourcePlugin, HandlerConfig, ResourceHandlerParam,
 } from '../types';
 import { fetchData, cacheData, matchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 
+/** @hidden */
 async function getData<T>(
-  cacheName: string,
-  keyFactory: KeyFactory,
-  fetcher: Fetcher<T>,
-  request: StorageRequest,
-  plugins: ResourcePlugin<T>[],
-): Promise<StorageResponse<T>> {
-  const response = await fetchData(
-    fetcher,
-    request,
-    plugins,
-  );
+  param: ResourceHandlerParam<T>, plugins: ResourcePlugin<T>[],
+): Promise<ResponseData<T>> {
+  const response = await fetchData(param, plugins);
 
-  cacheData(
-    cacheName,
-    keyFactory,
-    request,
-    response,
-    plugins,
-  );
+  cacheData(param, response, plugins);
 
   return response;
 }
 
+/**
+ * Implements the stale-while-revalidate strategy:
+ * https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/#stale-while-revalidate
+ *
+ * Presents a stale data from the cache and asynchronously fetch
+ * data from the fetcher, updating the cache once resolved.
+ *
+ * @category Strategies
+ * @typeparam T type of the data to be cached.
+ */
 export default class StaleWhileRevalidate<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
 
@@ -65,26 +62,10 @@ export default class StaleWhileRevalidate<T> implements ResourceHandler<T> {
       : plugins;
   }
 
-  public async handle(
-    cacheName: string,
-    keyFactory: KeyFactory,
-    fetcher: Fetcher<T>,
-    request: StorageRequest,
-  ): Promise<StorageResponse<T>> {
-    const prefetch = getData<T>(
-      cacheName,
-      keyFactory,
-      fetcher,
-      request,
-      this.plugins,
-    );
+  public async handle(param: ResourceHandlerParam<T>): Promise<ResponseData<T>> {
+    const prefetch = getData<T>(param, this.plugins);
 
-    let response = await matchData(
-      cacheName,
-      keyFactory,
-      request,
-      this.plugins,
-    );
+    let response = await matchData(param, this.plugins);
 
     if (!response) {
       response = await prefetch;
