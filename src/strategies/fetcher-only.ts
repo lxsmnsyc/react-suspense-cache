@@ -26,12 +26,22 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse,
-  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
+  ResourceHandler, ResponseData,
+  ResourcePlugin, HandlerConfig, ResourceHandlerParam,
 } from '../types';
 import { fetchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 
+/**
+ * Implements the "Network only" strategy:
+ * https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/#network-only
+ *
+ * Always tries to fetch from the fetcher. Does
+ * not have caching.
+ *
+ * @category Strategies
+ * @typeparam T type of the data to be cached.
+ */
 export default class FetcherOnly<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
 
@@ -41,18 +51,8 @@ export default class FetcherOnly<T> implements ResourceHandler<T> {
       : plugins;
   }
 
-  public async handle(
-    _cacheName: string,
-    _keyFactory: KeyFactory,
-    fetcher: Fetcher<T>,
-    request: StorageRequest,
-  ): Promise<StorageResponse<T>> {
-    const response = await fetchData(
-      fetcher,
-      request,
-      this.plugins,
-    );
-
-    return response;
+  /** @ignore */
+  public async handle(param: ResourceHandlerParam<T>): Promise<ResponseData<T>> {
+    return fetchData(param, this.plugins);
   }
 }
