@@ -29,3 +29,5 @@ export { default as createResource } from './resource';
 export * from './types';
 export { default as strategies } from './strategies';
 export { default as plugins } from './plugins';
+export { default as GlobalCache } from './utils/strategy-cache';
+export * from './utils/plugin-handler';
