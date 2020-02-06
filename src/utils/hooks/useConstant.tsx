@@ -24,6 +24,7 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import * as React from 'react';
 
@@ -31,6 +32,7 @@ interface Constant<T> {
   value: T;
 }
 
+/** @hidden */
 export default function useConstant<T>(supplier: () => T): T {
   const ref = React.useRef<Constant<T> | undefined>();
 
