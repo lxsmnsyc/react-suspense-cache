@@ -26,15 +26,19 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourcePlugin, StorageResponse, Optional, StorageRequest,
+  ResourcePlugin, ResponseData, Optional, CacheWillUpdateParam,
 } from '../types';
 import { defer } from '../utils/async';
 
+/**
+ * Attemps to not save the failed data to cache
+ *
+ * @category Plugins
+ */
 export default class SuccessOnlyPlugin implements ResourcePlugin<any> {
   public async cacheWillUpdate(
-    _: StorageRequest,
-    response: StorageResponse<any>,
-  ): Promise<Optional<StorageResponse<any>>> {
+    { response }: CacheWillUpdateParam<any>,
+  ): Promise<Optional<ResponseData<any>>> {
     await defer();
     if (response.status === 'failure') {
       return response;
