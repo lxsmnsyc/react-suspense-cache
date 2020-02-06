@@ -5,7 +5,7 @@ React library for creating Suspense-ful cached resources
 
 * Reactive - Data-fetching components that reads from resources can automatically re-render to update from the resource's data. This is useful if the data being served has been updated in the background.
 * Caching Strategies - Inspired by the [Offline Cookbook](https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/) and Google's Workbox, `react-suspense-cache` implements the caching strategies for the Suspense resources. 7 caching strategies are already built-out-of-the-box.
-* Plugins - Caching strategies can receive plugins that allows additional business logic on how the data is being handled internally. An example is imposing an expiration policy through the built-in `ExpirationPlugin`.
+* Plugins - Caching strategies can receive plugins that allows additional business logic on how the data is being handled ignorely. An example is imposing an expiration policy through the built-in `ExpirationPlugin`.
 
 ## Install
 
@@ -71,6 +71,29 @@ const randomDog = createResource({
   revalidateOnVisibility: true,
 });
 ```
+
+## Strategies
+
+Strategies (aka ResourceHandler) are a way to handle resource-to-cache data flow. The library has 7 strategies built out of the box, mainly inspired by the [Offline Cookbook](https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/):
+
+- `CatcherFetcherRace`: Fetches the data from both the data fetcher and the cache at the same time, and presents the data from whichever comes first.
+- `CacheFirst`: Tries to fetches the data from the cache first. If the cached data does not exist, resorts to data fetching instead (no caching).
+- `CacheOnly`: Fetches data from the cache. If the data does not exist, throws an error.
+- `CacheOrFetcher`: Similar to `CacheFirst`, but the fetcher caches data after resolving.
+- `FetcherFirst`: Fetches data from the fetcher before resolving to cache. This strategy accepts a timeout in as a way to mark the fetcher with a time restrain (treating it as a failure.)
+- `FetcherOnly`: Fetches data from the fetcher.
+- `StaleWhileRevalidate`: Presents a stale data from the cache, while asynchronously fetching the new data in the background. The newly fetched data is then cached.
+
+This strategies can be optionally provided to the resources. If the strategies are not provided, the resources will perform a strategy similar to `FetcherOnly`.
+
+## Plugins
+
+Plugins extends the capability of the Strategies. Plugins allows to receive, process, and return requests and responses. Strategies can act upon these changes and handles them.
+
+The package has 2 plugins:
+- `ExpirationPlugin`: receives an amount in seconds. Sets the cache age to that amount and allows cache revalidation to occur whenever the cache expires.
+- `SuccessOnlyPlugin`: returns `undefined` from failed responses.
+
 
 ## How does it work?
 
