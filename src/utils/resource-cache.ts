@@ -24,15 +24,16 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import { ResourceCache, Key } from '../types';
 
-const GLOBAL_CACHE = new Map<string, Map<string, ResourceCache<any>>>();
+const CACHE = new Map<string, Map<string, ResourceCache<any>>>();
 
 const RESOURCE_CACHE = {
   has(cacheName: string, key: Key): boolean {
-    if (GLOBAL_CACHE.has(cacheName)) {
-      const cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      const cache = CACHE.get(cacheName);
 
       return !!cache && cache.has(key);
     }
@@ -40,8 +41,8 @@ const RESOURCE_CACHE = {
     return false;
   },
   get<T>(cacheName: string, key: Key): ResourceCache<T> | undefined {
-    if (GLOBAL_CACHE.has(cacheName)) {
-      const cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      const cache = CACHE.get(cacheName);
 
       return cache && cache.get(key);
     }
@@ -50,20 +51,20 @@ const RESOURCE_CACHE = {
   },
   set<T>(cacheName: string, key: Key, value: ResourceCache<T>): void {
     let cache;
-    if (GLOBAL_CACHE.has(cacheName)) {
-      cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      cache = CACHE.get(cacheName);
     }
 
     if (!cache) {
       cache = new Map<string, ResourceCache<any>>();
-      GLOBAL_CACHE.set(cacheName, cache);
+      CACHE.set(cacheName, cache);
     }
 
     cache.set(key, value);
   },
   delete(cacheName: string, key: Key): void {
-    if (GLOBAL_CACHE.has(cacheName)) {
-      const cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      const cache = CACHE.get(cacheName);
 
       if (cache) {
         cache.delete(key);
