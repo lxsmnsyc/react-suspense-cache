@@ -24,9 +24,13 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
+
+/** @hidden */
 export type EmitterListener<Target> = (value: Target) => void;
 
+/** @hidden */
 export default class Emitter<Target> {
   private listeners: Set<EmitterListener<Target>>;
 
