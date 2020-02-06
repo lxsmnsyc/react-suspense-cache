@@ -24,68 +24,88 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import {
-  StorageResponse,
+  ResponseData,
   StorageRequest,
   ResourcePlugin,
-  Fetcher,
   Optional,
   StorageAccess,
-  KeyFactory,
-  Key,
+  RequestWillFetchParam,
+  FetchDidSucceedParam,
+  FetchDidFailParam,
+  ResourceHandlerParam,
+  CachedResponseWillBeUsedParam,
+  CacheKeyWillBeUsedParam,
+  CacheWillUpdateParam,
+  CacheDidUpdateParam,
 } from '../types';
 import { reduce, forEach } from './async';
 import STRATEGY_CACHE from './strategy-cache';
 
+
+/** @hidden */
 async function requestWillFetch<T>(
-  request: StorageRequest,
+  params: RequestWillFetchParam<T>,
   plugins: ResourcePlugin<T>[],
 ): Promise<StorageRequest> {
   return reduce(plugins, async (acc, current) => {
     if (current.requestWillFetch) {
-      return current.requestWillFetch(acc);
+      return current.requestWillFetch({
+        ...params,
+        request: acc,
+      });
     }
     return acc;
-  }, request);
+  }, params.request);
 }
 
+/** @hidden */
 async function fetchDidSucceed<T>(
-  request: StorageRequest,
-  response: StorageResponse<T>,
+  params: FetchDidSucceedParam<T>,
   plugins: ResourcePlugin<T>[],
-): Promise<StorageResponse<T>> {
+): Promise<ResponseData<T>> {
   return reduce(plugins, async (acc, current) => {
     if (current.fetchDidSucceed) {
-      return current.fetchDidSucceed(request, acc);
+      return current.fetchDidSucceed({
+        ...params,
+        response: acc,
+      });
     }
     return acc;
-  }, response);
+  }, params.response);
 }
 
+/** @hidden */
 async function fetchDidFail<T>(
-  oldRequest: StorageRequest,
-  newRequest: StorageRequest,
-  error: any,
+  params: FetchDidFailParam<T>,
   plugins: ResourcePlugin<T>[],
 ): Promise<void> {
   await forEach(plugins, async (value) => {
     if (value.fetchDidFail) {
-      await value.fetchDidFail(oldRequest, newRequest, error);
+      await value.fetchDidFail(params);
     }
     return true;
   });
 }
 
+/**
+ * Fetches data from the fetcher (provided by the params).
+ *
+ * Calls `requestWillFetch`, `fetchDidSucceed` and `fetchDidFail` stages.
+ *
+ * @param param original parameter received from the [[ResourceHandler]]
+ * @param plugins Array of [[ResourcePlugin]]
+ */
 export async function fetchData<T>(
-  fetcher: Fetcher<T>,
-  request: StorageRequest,
+  param: ResourceHandlerParam<T>,
   plugins: ResourcePlugin<T>[],
-): Promise<StorageResponse<T>> {
-  const newRequest = await requestWillFetch<T>(request, plugins);
+): Promise<ResponseData<T>> {
+  const newRequest = await requestWillFetch<T>(param, plugins);
 
   try {
-    const initialResponse: StorageResponse<T> = await fetcher(...request).then(
+    const initialResponse: ResponseData<T> = await param.fetcher(...param.request).then(
       (value) => ({
         value,
         status: 'success',
@@ -96,54 +116,70 @@ export async function fetchData<T>(
       }),
     );
 
-    const processedResponse = await fetchDidSucceed(newRequest, initialResponse, plugins);
+    const processedResponse = await fetchDidSucceed({
+      ...param,
+      request: newRequest,
+      response: initialResponse,
+    }, plugins);
 
     return processedResponse;
   } catch (err) {
-    await fetchDidFail(request, newRequest, err, plugins);
+    await fetchDidFail({
+      ...param,
+      oldRequest: param.request,
+      newRequest,
+      error: err,
+    }, plugins);
 
     throw err;
   }
 }
 
+/** @hidden */
 async function cacheKeyWillBeUsed<T>(
-  request: StorageRequest,
-  access: StorageAccess,
+  param: CacheKeyWillBeUsedParam<T>,
   plugins: ResourcePlugin<T>[],
 ): Promise<StorageRequest> {
   return reduce(plugins, async (acc, current) => {
     if (current.cacheKeyWillBeUsed) {
-      return current.cacheKeyWillBeUsed(acc, access);
+      return current.cacheKeyWillBeUsed({
+        ...param,
+        request: acc,
+      });
     }
     return acc;
-  }, request);
+  }, param.request);
 }
 
+/** @hidden */
 async function cachedResponseWillBeUsed<T>(
-  cacheName: string,
-  key: Key,
-  request: StorageRequest,
-  response: Optional<StorageResponse<T>>,
+  param: CachedResponseWillBeUsedParam<T>,
   plugins: ResourcePlugin<T>[],
-): Promise<Optional<StorageResponse<T>>> {
+): Promise<Optional<ResponseData<T>>> {
   return reduce(plugins, async (acc, current) => {
     if (current.cachedResponseWillBeUsed) {
-      return current.cachedResponseWillBeUsed(cacheName, key, request, acc);
+      return current.cachedResponseWillBeUsed({
+        ...param,
+        cachedResponse: acc,
+      });
     }
     return Promise.resolve(acc);
-  }, response);
+  }, param.cachedResponse);
 }
 
+/** @hidden */
 async function cacheWillUpdate<T>(
-  request: StorageRequest,
-  response: StorageResponse<T>,
+  param: CacheWillUpdateParam<T>,
   plugins: ResourcePlugin<T>[],
-): Promise<Optional<StorageResponse<T>>> {
-  let newResponse: Optional<StorageResponse<T>> = response;
+): Promise<Optional<ResponseData<T>>> {
+  let newResponse: Optional<ResponseData<T>> = param.response;
 
   await forEach(plugins, async (value) => {
     if (value.cacheWillUpdate && newResponse) {
-      newResponse = await value.cacheWillUpdate(request, newResponse);
+      newResponse = await value.cacheWillUpdate({
+        ...param,
+        response: newResponse,
+      });
     }
     return !!newResponse;
   });
@@ -155,54 +191,84 @@ async function cacheWillUpdate<T>(
   return newResponse;
 }
 
+/**
+ * Reads data from the cache.
+ *
+ * Calls `cacheKeyWillBeUsed` and `cachedResponseWillBeUsed` stages.
+ *
+ * @param param original parameter received from the [[ResourceHandler]]
+ * @param plugins Array of [[ResourcePlugin]]
+ */
 export async function matchData<T>(
-  cacheName: string,
-  keyFactory: KeyFactory,
-  request: StorageRequest,
+  param: ResourceHandlerParam<T>,
   plugins: ResourcePlugin<T>[],
-): Promise<Optional<StorageResponse<T>>> {
-  const newRequest = await cacheKeyWillBeUsed(request, StorageAccess.Read, plugins);
-  const key = keyFactory(newRequest);
-  return cachedResponseWillBeUsed(
-    cacheName, key, request, STRATEGY_CACHE.get(cacheName, key), plugins,
-  );
+): Promise<Optional<ResponseData<T>>> {
+  const newRequest = await cacheKeyWillBeUsed({
+    ...param,
+    access: StorageAccess.Read,
+  }, plugins);
+  const key = param.keyFactory(newRequest);
+  return cachedResponseWillBeUsed({
+    ...param,
+    request: newRequest,
+    cachedResponse: STRATEGY_CACHE.get(param.cacheName, key),
+  }, plugins);
 }
 
+/** @hidden */
 async function cacheDidUpdate<T>(
-  cacheName: string,
-  key: Key,
-  request: StorageRequest,
-  oldResponse: Optional<StorageResponse<T>>,
-  newResponse: StorageResponse<T>,
+  param: CacheDidUpdateParam<T>,
   plugins: ResourcePlugin<T>[],
 ): Promise<void> {
   await forEach(plugins, async (value) => {
     if (value.cacheDidUpdate) {
-      await value.cacheDidUpdate(cacheName, key, request, oldResponse, newResponse);
+      await value.cacheDidUpdate(param);
     }
     return true;
   });
 }
 
+/**
+ * Writes the data to the cache
+ *
+ * Calls `cacheKeyWillBeUsed`, `cacheWillUpdate` and `cacheDidUpdate` stages.
+ * Also calls the [[matchData]] stages.
+ *
+ * @param param original parameter received from the [[ResourceHandler]]
+ * @param plugins Array of [[ResourcePlugin]]
+ */
 export async function cacheData<T>(
-  cacheName: string,
-  keyFactory: KeyFactory,
-  request: StorageRequest,
-  response: StorageResponse<T>,
+  param: ResourceHandlerParam<T>,
+  response: ResponseData<T>,
   plugins: ResourcePlugin<T>[],
 ): Promise<void> {
-  const newRequest = await cacheKeyWillBeUsed(request, StorageAccess.Write, plugins);
-  const cachedResponse = await cacheWillUpdate(request, response, plugins);
+  const newRequest = await cacheKeyWillBeUsed({
+    ...param,
+    access: StorageAccess.Write,
+  }, plugins);
+  const cachedResponse = await cacheWillUpdate({
+    ...param,
+    response,
+    request: newRequest,
+  }, plugins);
 
   if (!cachedResponse) {
     return;
   }
 
-  const key = keyFactory(newRequest);
+  const key = param.keyFactory(newRequest);
 
-  const oldResponse = await matchData(cacheName, keyFactory, request, plugins);
+  const oldResponse = await matchData({
+    ...param,
+    request: newRequest,
+  }, plugins);
 
-  STRATEGY_CACHE.set(cacheName, key, cachedResponse);
+  STRATEGY_CACHE.set(param.cacheName, key, cachedResponse);
 
-  await cacheDidUpdate(cacheName, key, request, oldResponse, cachedResponse, plugins);
+  await cacheDidUpdate({
+    ...param,
+    request: newRequest,
+    oldResponse,
+    newResponse: cachedResponse,
+  }, plugins);
 }
