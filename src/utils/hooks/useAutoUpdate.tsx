@@ -24,12 +24,14 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import Emitter from '../emitter';
 import useForceUpdate from './useForceUpdate';
 import useIsomorphicEffect from './useIsomorphicEffect';
 import { Key } from '../../types';
 
+/** @hidden */
 export default function useAutoUpdate(emitter: Emitter<any>, key: Key): void {
   const forceUpdate = useForceUpdate();
 
