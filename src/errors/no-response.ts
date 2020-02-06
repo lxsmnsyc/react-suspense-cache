@@ -27,6 +27,9 @@
  */
 import { StorageRequest } from '../types';
 
+/**
+ * Thrown by the [[ResourceHandler]] when an empty response is received.
+ */
 export default class NoResponseError extends Error {
   constructor(cacheName: string, request: StorageRequest) {
     super(`
