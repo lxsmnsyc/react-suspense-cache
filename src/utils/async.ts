@@ -24,7 +24,11 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
+
+
+/** @hidden */
 export async function forEach<T>(
   arr: T[],
   callback: (value: T, index: number) => Promise<boolean>,
@@ -36,6 +40,8 @@ export async function forEach<T>(
   ), Promise.resolve(true));
 }
 
+
+/** @hidden */
 export async function reduce<T, R>(
   arr: T[],
   reducer: (acc: R, current: T, index: number) => Promise<R>,
@@ -48,6 +54,8 @@ export async function reduce<T, R>(
   ), Promise.resolve(initialValue));
 }
 
+
+/** @hidden */
 export function defer(): Promise<void> {
   return Promise.resolve();
 }
