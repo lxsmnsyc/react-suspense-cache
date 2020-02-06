@@ -24,39 +24,58 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
-import { StorageResponse, Key } from '../types';
+import { ResponseData, Key } from '../types';
 
-const GLOBAL_CACHE = new Map<string, Map<string, StorageResponse<any>>>();
+const CACHE = new Map<string, Map<string, ResponseData<any>>>();
 
 const STRATEGY_CACHE = {
+  /**
+   * Checks if the GlobalCache has the given key of cache occupied
+   * @param cacheName the name of the cache to access to
+   * @param key key of the data to check for
+   */
   has(cacheName: string, key: Key): boolean {
-    if (GLOBAL_CACHE.has(cacheName)) {
-      const cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      const cache = CACHE.get(cacheName);
 
       return !!cache && cache.has(key);
     }
 
     return false;
   },
-  get<T>(cacheName: string, key: Key): StorageResponse<T> | undefined {
-    if (GLOBAL_CACHE.has(cacheName)) {
-      const cache = GLOBAL_CACHE.get(cacheName);
+  /**
+   * Gets the cached data from the given cache and key
+   * @param cacheName the name of the cache to access to
+   * @param key key of the data to check for
+   * @typeparam T the type of the cached value
+   */
+  get<T>(cacheName: string, key: Key): ResponseData<T> | undefined {
+    if (CACHE.has(cacheName)) {
+      const cache = CACHE.get(cacheName);
 
       return cache && cache.get(key);
     }
 
     return undefined;
   },
-  set<T>(cacheName: string, key: Key, value: StorageResponse<T>): void {
+  /**
+   * Sets the data to be cached for the given cache and key
+   * @param cacheName the name of the cache to access to
+   * @param key key of the data to check for
+   * @param value value to be cached
+   * @typeparam T the type of the value to be cached with.
+   */
+  set<T>(cacheName: string, key: Key, value: ResponseData<T>): void {
     let cache;
-    if (GLOBAL_CACHE.has(cacheName)) {
-      cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      cache = CACHE.get(cacheName);
     }
 
     if (!cache) {
-      cache = new Map<string, StorageResponse<any>>();
-      GLOBAL_CACHE.set(cacheName, cache);
+      cache = new Map<string, ResponseData<any>>();
+      CACHE.set(cacheName, cache);
     }
 
     cache.set(key, value);
