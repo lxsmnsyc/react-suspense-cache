@@ -26,16 +26,19 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  StorageResponse, Key, ResourcePlugin, StorageRequest, Optional,
+  ResponseData, Key, ResourcePlugin, Optional,
+  CachedResponseWillBeUsedParam, CacheDidUpdateParam,
 } from '../types';
 import { defer } from '../utils/async';
 
-const GLOBAL_CACHE = new Map<string, Map<string, number>>();
+/** @hidden */
+const CACHE = new Map<string, Map<string, number>>();
 
+/** @hidden */
 const EXPIRATION_CACHE = {
   has(cacheName: string, key: Key): boolean {
-    if (GLOBAL_CACHE.has(cacheName)) {
-      const cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      const cache = CACHE.get(cacheName);
 
       return !!cache && cache.has(key);
     }
@@ -43,8 +46,8 @@ const EXPIRATION_CACHE = {
     return false;
   },
   get(cacheName: string, key: Key): number | undefined {
-    if (GLOBAL_CACHE.has(cacheName)) {
-      const cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      const cache = CACHE.get(cacheName);
 
       return cache && cache.get(key);
     }
@@ -53,19 +56,28 @@ const EXPIRATION_CACHE = {
   },
   set(cacheName: string, key: Key, value: number): void {
     let cache;
-    if (GLOBAL_CACHE.has(cacheName)) {
-      cache = GLOBAL_CACHE.get(cacheName);
+    if (CACHE.has(cacheName)) {
+      cache = CACHE.get(cacheName);
     }
 
     if (!cache) {
       cache = new Map<string, number>();
-      GLOBAL_CACHE.set(cacheName, cache);
+      CACHE.set(cacheName, cache);
     }
 
     cache.set(key, value);
   },
 };
 
+/**
+ * Marks a cache with timestamp expiration logic.
+ *
+ * Once the cache expires, this forces the receiving strategy
+ * to refetch (if provided by the strategy logic) or respond
+ * with no data.
+ *
+ * @category Plugins
+ */
 export default class ExpirationPlugin implements ResourcePlugin<any> {
   private maxAgeSeconds?: number;
 
@@ -74,37 +86,33 @@ export default class ExpirationPlugin implements ResourcePlugin<any> {
   }
 
   public async cachedResponseWillBeUsed(
-    cacheName: string,
-    key: Key,
-    _: StorageRequest,
-    cachedResponse: Optional<StorageResponse<any>>,
-  ): Promise<Optional<StorageResponse<any>>> {
+    param: CachedResponseWillBeUsedParam<any>,
+  ): Promise<Optional<ResponseData<any>>> {
     await defer();
-    if (!cachedResponse) {
+    if (!param.cachedResponse) {
       return null;
     }
 
     if (!this.maxAgeSeconds) {
-      return cachedResponse;
+      return param.cachedResponse;
     }
 
-    if (EXPIRATION_CACHE.has(cacheName, key)) {
-      const value = EXPIRATION_CACHE.get(cacheName, key);
+    const key = param.keyFactory(param.request);
+
+    if (EXPIRATION_CACHE.has(param.cacheName, key)) {
+      const value = EXPIRATION_CACHE.get(param.cacheName, key);
 
       if (value && value >= Date.now() - (this.maxAgeSeconds * 1000)) {
-        return cachedResponse;
+        return param.cachedResponse;
       }
     }
 
     return null;
   }
 
-  public async cacheDidUpdate(
-    cacheName: string,
-    key: Key,
-  ): Promise<void> {
+  public async cacheDidUpdate(param: CacheDidUpdateParam<any>): Promise<void> {
     await defer();
 
-    EXPIRATION_CACHE.set(cacheName, key, Date.now());
+    EXPIRATION_CACHE.set(param.cacheName, param.keyFactory(param.request), Date.now());
   }
 }
