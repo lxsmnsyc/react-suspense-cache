@@ -26,32 +26,20 @@
  * @copyright Alexis Munsayac 2020
  */
 import {
-  ResourceHandler, StorageRequest, StorageResponse,
-  ResourcePlugin, Fetcher, KeyFactory, HandlerConfig,
+  ResourceHandler, ResponseData,
+  ResourcePlugin, HandlerConfig, ResourceHandlerParam,
 } from '../types';
 import { fetchData, cacheData, matchData } from '../utils/plugin-handler';
 import SuccessOnlyPlugin from '../plugins/success-only-plugin';
 
+/** @hidden */
 async function getData<T>(
-  cacheName: string,
-  keyFactory: KeyFactory,
-  fetcher: Fetcher<T>,
-  request: StorageRequest,
+  param: ResourceHandlerParam<T>,
   plugins: ResourcePlugin<T>[],
-): Promise<StorageResponse<T>> {
-  const response = await fetchData(
-    fetcher,
-    request,
-    plugins,
-  );
+): Promise<ResponseData<T>> {
+  const response = await fetchData(param, plugins);
 
-  cacheData(
-    cacheName,
-    keyFactory,
-    request,
-    response,
-    plugins,
-  );
+  cacheData(param, response, plugins);
 
   return response;
 }
@@ -60,11 +48,10 @@ async function getData<T>(
  * Implementation of the on network response fetching strategy:
  * https://developers.google.com/web/fundamentals/instant-and-offline/offline-cookbook/#on-network-response
  *
- * Responds with the cached data first and tries to fetch data,
- * thereafter caching the data and responds with the data if
- * the cached data fails.
+ * Similar to [[CacheFirst]] but the fetcher caches the resulting data.
  *
- * Similar to CacheFirst but the fetcher caches the resulting data.
+ * @category Strategies
+ * @typeparam T type of the data to be cached.
  */
 export default class CacheOrFetcher<T> implements ResourceHandler<T> {
   private plugins: ResourcePlugin<T>[];
@@ -75,27 +62,11 @@ export default class CacheOrFetcher<T> implements ResourceHandler<T> {
       : plugins;
   }
 
-  public async handle(
-    cacheName: string,
-    keyFactory: KeyFactory,
-    fetcher: Fetcher<T>,
-    request: StorageRequest,
-  ): Promise<StorageResponse<T>> {
-    let response = await matchData(
-      cacheName,
-      keyFactory,
-      request,
-      this.plugins,
-    );
+  public async handle(param: ResourceHandlerParam<T>): Promise<ResponseData<T>> {
+    let response = await matchData(param, this.plugins);
 
     if (!response) {
-      response = await getData<T>(
-        cacheName,
-        keyFactory,
-        fetcher,
-        request,
-        this.plugins,
-      );
+      response = await getData<T>(param, this.plugins);
     }
 
     return response;
