@@ -11,7 +11,7 @@ const randomDog = createResource({
     const json = await response.json();
     return json.message;
   },
-  strategy: new strategies.FetcherOnly({
+  strategy: new strategies.StaleWhileRevalidate({
     plugins: [
       new plugins.ExpirationPlugin(10),
     ],
