@@ -33,7 +33,14 @@ import RESOURCE_CACHE from './utils/resource-cache';
 import useVisibilityUpdate from './utils/hooks/useVisibilityUpdate';
 import useVisibilityRevalidate from './utils/hooks/useVisibilityRevalidate';
 import useAutoUpdate from './utils/hooks/useAutoUpdate';
+import STRATEGY_CACHE from './utils/strategy-cache';
 
+/**
+ * Constructs a React resource for Suspense components.
+ * @typeparam T the type of the data that flows in the resource.
+ * @typeparam Params a unified type for the [[StorageRequest]]
+ * @category Core
+ */
 export default function createResource<T, Params extends StorageRequest>(
   {
     keyFactory, fetcher, strategy, cacheName,
@@ -44,18 +51,24 @@ export default function createResource<T, Params extends StorageRequest>(
 
   const triggerEmitter = new Emitter<Key>();
 
-  function startFetch(key: Key, args: Params): Promise<void> {
+  /** @hidden */
+  function startFetch(key: Key, request: Params): Promise<void> {
     let instance;
     /**
      * If strategy exists in config, use it.
      */
     if (strategy) {
-      instance = strategy.handle(cache, keyFactory, fetcher, args);
+      instance = strategy.handle({
+        cacheName: cache,
+        keyFactory,
+        fetcher,
+        request,
+      });
     } else {
       /**
        * Default to fetcher
        */
-      instance = fetcher(...args).then<ResponseData<T>, ResponseData<T>>(
+      instance = fetcher(...request).then<ResponseData<T>, ResponseData<T>>(
         (value) => ({
           value,
           status: 'success',
@@ -111,12 +124,24 @@ export default function createResource<T, Params extends StorageRequest>(
     /**
      * Set the value
      */
-    RESOURCE_CACHE.set(cache, key, {
-      data: {
+    if (strategy) {
+      STRATEGY_CACHE.set(cache, key, {
         status: 'success',
         value,
-      },
-    });
+      });
+
+      /**
+       * Re-fetch
+       */
+      startFetch(key, args);
+    } else {
+      RESOURCE_CACHE.set(cache, key, {
+        data: {
+          status: 'success',
+          value,
+        },
+      });
+    }
     /**
      * Re-render all data-fetching components
      */
