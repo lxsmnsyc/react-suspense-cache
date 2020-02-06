@@ -24,9 +24,11 @@
  *
  * @author Alexis Munsayac <alexis.munsayac@gmail.com>
  * @copyright Alexis Munsayac 2020
+ * @hidden
  */
 import * as React from 'react';
 
+/** @hidden */
 const useIsomorphicEffect = typeof window === 'undefined'
   ? React.useLayoutEffect
   : React.useEffect;
